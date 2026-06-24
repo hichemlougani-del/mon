@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gyrocopters Flash Pro — Trottinette Électrique</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#0891B2',
+            secondary: '#22D3EE',
+            cta: '#22C55E',
+            dark: '#020b14',
+          },
+          fontFamily: {
+            display: ['Syncopate', 'sans-serif'],
+            mono: ['Space Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{
+      cursor:none;overflow-x:hidden;
+      background:#020b14;color:#E2F8FF;
+      font-family:'Space Mono',monospace;
+    }
+
+    /* ── CURSOR ── */
+    .cur{position:fixed;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:width .2s,height .2s,background .2s}
+    .cur-dot{width:10px;height:10px;background:#22D3EE;border-radius:50%;box-shadow:0 0 16px #22D3EE,0 0 40px #22D3EE60}
+    .cur-ring{width:38px;height:38px;border:1.5px solid #22D3EE50;border-radius:50%;transition:all .15s ease-out}
+
+    /* ── CANVAS ── */
+    #cv{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+    /* ── SECTIONS ── */
+    section,nav,footer{position:relative;z-index:1}
+
+    /* ── NEON ── */
+    .neon-c{text-shadow:0 0 10px #22D3EE,0 0 30px #22D3EE,0 0 60px #22D3EE80}
+    .neon-g{text-shadow:0 0 10px #22C55E,0 0 30px #22C55E}
+
+    /* ── GLASS ── */
+    .glass{
+      background:rgba(8,145,178,.07);
+      border:1px solid rgba(34,211,238,.18);
+      backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+      transition:background .3s,border-color .3s,box-shadow .3s
+    }
+    .glass:hover{
+      background:rgba(8,145,178,.14);
+      border-color:rgba(34,211,238,.45);
+      box-shadow:0 0 40px rgba(34,211,238,.15),inset 0 0 30px rgba(34,211,238,.04)
+    }
+
+    /* ── SPEED LINES ── */
+    .slines{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+    .sl{position:absolute;height:1px;background:linear-gradient(to right,transparent,#22D3EE50,transparent);animation:sl 1.8s ease-out infinite;opacity:0}
+    @keyframes sl{0%{transform:translateX(-110%);opacity:0;width:50%}15%{opacity:1}100%{transform:translateX(210%);opacity:0;width:120%}}
+
+    /* ── FLOAT ── */
+    @keyframes float{0%,100%{transform:translateY(0) rotate(0)}40%{transform:translateY(-14px) rotate(.8deg)}70%{transform:translateY(-6px) rotate(-.5deg)}}
+    .flt{animation:float 4s ease-in-out infinite}
+
+    /* ── ORB ── */
+    .orb{position:absolute;border-radius:50%;filter:blur(70px);opacity:.25;animation:orbf 9s ease-in-out infinite}
+    @keyframes orbf{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(20px,-35px) scale(1.08)}}
+
+    /* ── REVEAL ── */
+    .rv{opacity:0;transform:translateY(36px);transition:opacity .8s ease,transform .8s ease}
+    .rvl{opacity:0;transform:translateX(-50px);transition:opacity .8s ease,transform .8s ease}
+    .rvr{opacity:0;transform:translateX(50px);transition:opacity .8s ease,transform .8s ease}
+    .rv.on,.rvl.on,.rvr.on{opacity:1;transform:none}
+
+    /* ── SHIMMER ── */
+    @keyframes shim{0%{background-position:-200% center}100%{background-position:200% center}}
+    .shim{
+      background:linear-gradient(90deg,#22D3EE 0%,#fff 20%,#22D3EE 40%,#22C55E 70%,#22D3EE 100%);
+      background-size:200% auto;
+      -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+      animation:shim 3.5s linear infinite
+    }
+
+    /* ── PULSE DOT ── */
+    @keyframes pr{0%{transform:scale(.8);opacity:1}100%{transform:scale(2.8);opacity:0}}
+    .pdot{position:relative;display:inline-block;width:8px;height:8px;background:#22C55E;border-radius:50%;box-shadow:0 0 8px #22C55E}
+    .pdot::before,.pdot::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:1.5px solid #22C55E;animation:pr 2s ease-out infinite}
+    .pdot::after{animation-delay:.9s}
+
+    /* ── PROGRESS BAR ── */
+    .pb{height:3px;background:linear-gradient(to right,#0891B2,#22D3EE,#22C55E);border-radius:999px;transform:scaleX(0);transform-origin:left;transition:transform 1.3s cubic-bezier(.4,0,.2,1);box-shadow:0 0 10px #22D3EE}
+    .pb.on{transform:scaleX(1)}
+
+    /* ── TILT ── */
+    .tilt{transform-style:preserve-3d;transition:transform .12s ease-out;will-change:transform}
+
+    /* ── HEX GRID BG ── */
+    .hexbg{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49'%3E%3Cg fill='%2322d3ee' fill-opacity='.035'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/g%3E%3C/svg%3E")}
+
+    /* ── BTN ── */
+    .btn{
+      display:inline-flex;align-items:center;gap:.7rem;
+      padding:1rem 2.4rem;border-radius:999px;
+      background:#22C55E;color:#fff;font-family:'Syncopate',sans-serif;
+      font-weight:700;letter-spacing:.1em;font-size:.85rem;
+      cursor:none;transition:transform .2s,box-shadow .2s;
+      box-shadow:0 0 30px #22C55E70,0 0 60px #22C55E30
+    }
+    .btn:hover{box-shadow:0 0 50px #22C55E,0 0 100px #22C55E50;transform:scale(1.05)}
+
+    /* ── BENTO ── */
+    .bcard{border-radius:22px;overflow:hidden;transition:transform .3s,box-shadow .3s;cursor:none}
+    .bcard:hover{transform:translateY(-5px);box-shadow:0 24px 60px rgba(34,211,238,.18)}
+
+    /* ── SCANLINE ── */
+    .scan::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(34,211,238,.015) 2px,rgba(34,211,238,.015) 4px);pointer-events:none}
+
+    /* ── MESH BG ── */
+    .mesh{
+      background:
+        radial-gradient(ellipse at 8% 15%,rgba(8,145,178,.18) 0%,transparent 50%),
+        radial-gradient(ellipse at 92% 80%,rgba(34,211,238,.12) 0%,transparent 50%),
+        radial-gradient(ellipse at 50% 50%,rgba(34,197,94,.05) 0%,transparent 60%),
+        #020b14
+    }
+
+    /* ── MODE CHIP ── */
+    .chip{padding:.3rem .9rem;border-radius:999px;font-size:.7rem;font-weight:700;letter-spacing:.1em;border:1px solid;transition:all .3s;font-family:'Space Mono',monospace;text-align:center}
+
+    @media(prefers-reduced-motion:reduce){
+      .flt,.orb,.sl,.shim{animation:none}
+      .rv,.rvl,.rvr{opacity:1;transform:none}
+      .pb{transform:scaleX(1)}
+    }
+    @media(hover:none){body{cursor:auto}.cur{display:none}}
+  </style>
+</head>
+<body class="mesh">
+
+<!-- CURSORS -->
+<div class="cur cur-dot" id="cd"></div>
+<div class="cur cur-ring" id="cr"></div>
+
+<!-- PARTICLES -->
+<canvas id="cv"></canvas>
+
+<!-- ══════════════════════ NAV ══════════════════════ -->
+<nav class="fixed top-0 inset-x-0 z-50" style="background:rgba(2,11,20,.85);backdrop-filter:blur(20px);border-bottom:1px solid rgba(34,211,238,.1)">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <svg viewBox="0 0 24 24" class="w-7 h-7" fill="none"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="#22D3EE" stroke="#22D3EE" stroke-width=".5"/></svg>
+      <span class="font-display font-bold text-xs tracking-widest text-white">GYROCOPTERS</span>
+    </div>
+    <div class="hidden md:flex gap-8 text-xs font-mono tracking-widest" style="color:rgba(34,211,238,.6)">
+      <a href="#features" class="hover:text-secondary transition-colors" style="cursor:none">FEATURES</a>
+      <a href="#specs"    class="hover:text-secondary transition-colors" style="cursor:none">SPECS</a>
+      <a href="#app"      class="hover:text-secondary transition-colors" style="cursor:none">APP</a>
+    </div>
+    <a href="#buy" class="btn !py-2 !px-5 !text-xs" style="cursor:none">ACHETER</a>
+  </div>
+</nav>
+
+<!-- ══════════════════════ HERO ══════════════════════ -->
+<section class="min-h-screen flex items-center justify-center relative overflow-hidden pt-20">
+  <div class="orb w-96 h-96 bg-primary"  style="top:-4rem;left:-6rem;animation-delay:0s"></div>
+  <div class="orb w-72 h-72 bg-secondary" style="bottom:0;right:-4rem;animation-delay:3s"></div>
+
+  <div class="slines">
+    <div class="sl" style="top:22%;animation-delay:0s"></div>
+    <div class="sl" style="top:38%;animation-delay:.35s"></div>
+    <div class="sl" style="top:54%;animation-delay:.7s"></div>
+    <div class="sl" style="top:70%;animation-delay:.2s"></div>
+    <div class="sl" style="top:85%;animation-delay:.9s"></div>
+  </div>
+
+  <div class="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-16 items-center w-full">
+
+    <!-- TEXT -->
+    <div class="rvl">
+      <div class="inline-flex items-center gap-2 mb-6 px-4 py-2 rounded-full glass text-xs font-mono tracking-widest" style="color:#22D3EE">
+        <span class="pdot"></span>
+        &nbsp;NOUVEAU 2026 · UL 2272 CERTIFIÉ
+      </div>
+      <h1 class="font-display font-bold leading-none mb-3">
+        <span id="sc" class="block text-5xl md:text-7xl text-white">FLASH</span>
+        <span class="shim text-6xl md:text-8xl">PRO</span>
+      </h1>
+      <p class="font-display text-base md:text-lg tracking-wide mb-4" style="color:rgba(34,211,238,.85)">GYROCOPTERS</p>
+      <p class="font-mono text-sm mb-8 max-w-md leading-relaxed" style="color:rgba(255,255,255,.55)">
+        La trottinette électrique ultime pour adolescents.
+        Vitesse, autonomie et style — contrôlée depuis ton smartphone.
+      </p>
+      <div class="flex flex-wrap gap-4">
+        <a href="#buy" class="btn" style="cursor:none">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+          COMMANDER
+        </a>
+        <a href="#specs" class="inline-flex items-center gap-2 px-6 py-4 rounded-full glass font-mono text-sm tracking-widest transition-all" style="color:#22D3EE;cursor:none">
+          SPECS
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+      </div>
+    </div>
+
+    <!-- SCOOTER VISUAL -->
+    <div class="flex justify-center rvr">
+      <div class="tilt relative w-full max-w-lg" id="tc">
+        <!-- Glow halo -->
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div class="w-72 h-72 rounded-full" style="background:radial-gradient(circle,rgba(34,211,238,.18) 0%,transparent 70%);animation:orbf 5s ease-in-out infinite"></div>
+        </div>
+
+        <!-- SVG SCOOTER -->
+        <div class="flt relative z-10" style="filter:drop-shadow(0 0 18px #22D3EE) drop-shadow(0 0 50px rgba(8,145,178,.5))">
+          <svg viewBox="0 0 540 380" xmlns="http://www.w3.org/2000/svg" class="w-full">
+            <defs>
+              <radialGradient id="wg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#22D3EE" stop-opacity=".3"/><stop offset="100%" stop-color="#0891B2" stop-opacity="0"/></radialGradient>
+              <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+              <pattern id="grip" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r=".8" fill="#22D3EE" opacity=".4"/></pattern>
+            </defs>
+
+            <!-- Ambient glow -->
+            <ellipse cx="270" cy="320" rx="180" ry="30" fill="url(#wg)" opacity=".4"/>
+
+            <!-- ── REAR WHEEL ── -->
+            <circle cx="120" cy="300" r="62" fill="none" stroke="#0F3550" stroke-width="10"/>
+            <circle cx="120" cy="300" r="62" fill="none" stroke="#0891B2" stroke-width="3"/>
+            <circle cx="120" cy="300" r="50" fill="none" stroke="#22D3EE" stroke-width="1.5" stroke-dasharray="10 5" opacity=".7"/>
+            <circle cx="120" cy="300" r="36" fill="none" stroke="#0891B2" stroke-width="2"/>
+            <circle cx="120" cy="300" r="13" fill="#22D3EE" filter="url(#glow)"/>
+            <!-- spokes -->
+            <g stroke="#22D3EE" stroke-width="1.5" opacity=".5">
+              <line x1="120" y1="264" x2="120" y2="336"/>
+              <line x1="84"  y1="300" x2="156" y2="300"/>
+              <line x1="95"  y1="275" x2="145" y2="325"/>
+              <line x1="145" y1="275" x2="95"  y2="325"/>
+            </g>
+
+            <!-- ── FRONT WHEEL ── -->
+            <circle cx="415" cy="300" r="62" fill="none" stroke="#0F3550" stroke-width="10"/>
+            <circle cx="415" cy="300" r="62" fill="none" stroke="#0891B2" stroke-width="3"/>
+            <circle cx="415" cy="300" r="50" fill="none" stroke="#22D3EE" stroke-width="1.5" stroke-dasharray="10 5" opacity=".7"/>
+            <circle cx="415" cy="300" r="36" fill="none" stroke="#0891B2" stroke-width="2"/>
+            <circle cx="415" cy="300" r="13" fill="#22D3EE" filter="url(#glow)"/>
+            <g stroke="#22D3EE" stroke-width="1.5" opacity=".5">
+              <line x1="415" y1="264" x2="415" y2="336"/>
+              <line x1="379" y1="300" x2="451" y2="300"/>
+              <line x1="390" y1="275" x2="440" y2="325"/>
+              <line x1="440" y1="275" x2="390" y2="325"/>
+            </g>
+
+            <!-- ── DECK ── -->
+            <rect x="110" y="273" width="315" height="32" rx="9" fill="#061525" stroke="#0891B2" stroke-width="2"/>
+            <rect x="120" y="277" width="295" height="5" rx="2.5" fill="#22D3EE" opacity=".15"/>
+            <rect x="130" y="278" width="275" height="22" rx="4" fill="url(#grip)" opacity=".8"/>
+            <text x="270" y="293" text-anchor="middle" fill="#22D3EE" font-size="9" font-family="Syncopate" font-weight="bold" letter-spacing="4" opacity=".9">FLASH PRO</text>
+
+            <!-- Motor housing -->
+            <ellipse cx="120" cy="300" rx="24" ry="18" fill="#061525" stroke="#22C55E" stroke-width="2"/>
+
+            <!-- ── STEM ── -->
+            <rect x="364" y="128" width="22" height="155" rx="11" fill="#061525" stroke="#0891B2" stroke-width="2"/>
+            <rect x="368" y="132" width="5" height="145" rx="2.5" fill="#22D3EE" opacity=".12"/>
+
+            <!-- Folding joint -->
+            <circle cx="375" cy="278" r="17" fill="#061525" stroke="#22D3EE" stroke-width="2"/>
+            <circle cx="375" cy="278" r="8"  fill="#22D3EE" opacity=".3" stroke="#22D3EE" stroke-width="1"/>
+
+            <!-- ── HANDLEBAR ── -->
+            <rect x="318" y="116" width="115" height="18" rx="9" fill="#061525" stroke="#0891B2" stroke-width="2"/>
+            <rect x="315" y="113" width="22" height="24" rx="7" fill="#22D3EE" filter="url(#glow)"/>
+            <rect x="411" y="113" width="22" height="24" rx="7" fill="#22D3EE" filter="url(#glow)"/>
+
+            <!-- ── LCD DISPLAY ── -->
+            <rect x="358" y="153" width="34" height="22" rx="5" fill="#020D1A" stroke="#22D3EE" stroke-width="1.5"/>
+            <rect x="360" y="155" width="30" height="18" rx="3" fill="#001a28"/>
+            <text x="375" y="162" text-anchor="middle" fill="#22D3EE" font-size="5" font-family="Space Mono" opacity=".9">30km/h</text>
+            <text x="375" y="170" text-anchor="middle" fill="#22C55E" font-size="4" font-family="Space Mono" opacity=".8">SPORT</text>
+
+            <!-- ── HEADLIGHT ── -->
+            <rect x="405" y="128" width="20" height="12" rx="4" fill="#FBBF24"/>
+            <rect x="407" y="130" width="16" height="8" rx="2" fill="white" opacity=".9"/>
+            <path d="M425 129 L468 112 L468 140 Z" fill="rgba(251,191,36,.08)"/>
+
+            <!-- Taillight -->
+            <rect x="106" y="278" width="14" height="10" rx="3" fill="#EF4444" opacity=".9"/>
+
+            <!-- ── DECORATIVE ACCENTS ── -->
+            <!-- side accent stripe -->
+            <rect x="150" y="282" width="200" height="2" rx="1" fill="#22D3EE" opacity=".3"/>
+
+            <!-- Energy sparks (animated) -->
+            <circle cx="210" cy="155" r="3" fill="#22D3EE" opacity=".8">
+              <animate attributeName="opacity" values="0;1;0" dur="2.1s" repeatCount="indefinite"/>
+              <animate attributeName="cy" values="155;145;155" dur="2.1s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="450" cy="200" r="2" fill="#22C55E">
+              <animate attributeName="opacity" values="0;1;0" dur="1.6s" repeatCount="indefinite" begin=".5s"/>
+              <animate attributeName="cy" values="200;192;200" dur="1.6s" repeatCount="indefinite" begin=".5s"/>
+            </circle>
+            <circle cx="90" cy="240" r="2" fill="#22D3EE">
+              <animate attributeName="opacity" values="0;1;0" dur="2.7s" repeatCount="indefinite" begin="1s"/>
+            </circle>
+            <circle cx="330" cy="105" r="3" fill="#0891B2">
+              <animate attributeName="opacity" values="0;1;0" dur="1.9s" repeatCount="indefinite" begin=".8s"/>
+            </circle>
+
+            <!-- Speed blur lines (left of rear wheel) -->
+            <g stroke="#22D3EE" stroke-width="1" opacity=".25">
+              <line x1="35" y1="268" x2="72" y2="268"/>
+              <line x1="28" y1="280" x2="68" y2="280"/>
+              <line x1="40" y1="292" x2="70" y2="292"/>
+            </g>
+          </svg>
+        </div>
+
+        <!-- FLOATING BADGES -->
+        <div class="flt absolute -left-6 top-10 glass rounded-2xl px-4 py-3 text-center" style="animation-delay:.4s">
+          <div class="font-display font-bold text-2xl neon-c" style="color:#22D3EE" data-target="30">0</div>
+          <div class="text-xs font-mono tracking-widest" style="color:rgba(255,255,255,.5)">KM/H</div>
+        </div>
+        <div class="flt absolute -right-6 top-1/3 glass rounded-2xl px-4 py-3 text-center" style="animation-delay:1s">
+          <div class="font-display font-bold text-2xl neon-g" style="color:#22C55E" data-target="30">0</div>
+          <div class="text-xs font-mono tracking-widest" style="color:rgba(255,255,255,.5)">KM</div>
+        </div>
+        <div class="flt absolute -left-10 bottom-20 glass rounded-2xl px-4 py-3 text-center" style="animation-delay:1.6s">
+          <div class="font-display font-bold text-xl neon-c" style="color:#22D3EE" data-target="350">0</div>
+          <div class="text-xs font-mono tracking-widest" style="color:rgba(255,255,255,.5)">WATTS</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scroll indicator -->
+  <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-40">
+    <span class="text-xs font-mono tracking-widest" style="color:#22D3EE">SCROLL</span>
+    <div class="w-px h-12 animate-pulse" style="background:linear-gradient(to bottom,#22D3EE,transparent)"></div>
+  </div>
+</section>
+
+<!-- ══════════════════════ STATS BAR ══════════════════════ -->
+<section class="py-10 hexbg" style="border-top:1px solid rgba(34,211,238,.1);border-bottom:1px solid rgba(34,211,238,.1)">
+  <div class="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+    <div class="rv"><div class="font-display font-bold text-4xl neon-c" style="color:#22D3EE" data-target="30">0</div><div class="text-xs font-mono tracking-widest mt-1" style="color:rgba(255,255,255,.45)">VITESSE MAX km/h</div></div>
+    <div class="rv" style="transition-delay:.1s"><div class="font-display font-bold text-4xl neon-c" style="color:#22D3EE" data-target="30">0</div><div class="text-xs font-mono tracking-widest mt-1" style="color:rgba(255,255,255,.45)">AUTONOMIE km</div></div>
+    <div class="rv" style="transition-delay:.2s"><div class="font-display font-bold text-4xl neon-c" style="color:#22D3EE" data-target="350">0</div><div class="text-xs font-mono tracking-widest mt-1" style="color:rgba(255,255,255,.45)">MOTEUR watts</div></div>
+    <div class="rv" style="transition-delay:.3s"><div class="font-display font-bold text-4xl neon-g" style="color:#22C55E">8.5"</div><div class="text-xs font-mono tracking-widest mt-1" style="color:rgba(255,255,255,.45)">PNEUS anti-éclatement</div></div>
+  </div>
+</section>
+
+<!-- ══════════════════════ FEATURES BENTO ══════════════════════ -->
+<section id="features" class="py-24 px-6">
+  <div class="max-w-7xl mx-auto">
+    <div class="text-center mb-16 rv">
+      <p class="text-xs font-mono tracking-widest mb-3" style="color:rgba(34,211,238,.6)">CARACTÉRISTIQUES</p>
+      <h2 class="font-display font-bold text-4xl md:text-5xl text-white">CONÇU POUR <span class="shim">PERFORMER</span></h2>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-4">
+
+      <!-- SPEED – 2 cols -->
+      <div class="bcard glass scan relative md:col-span-2 p-8 rvl">
+        <div class="absolute top-4 right-4 w-2 h-2 rounded-full bg-cta" style="box-shadow:0 0 10px #22C55E"></div>
+        <svg class="w-10 h-10 mb-4" style="color:#22D3EE" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        <h3 class="font-display font-bold text-2xl text-white mb-2">VITESSE ÉLECTRISANTE</h3>
+        <p class="font-mono text-sm mb-6 leading-relaxed" style="color:rgba(255,255,255,.55)">Moteur brushless 350W pour une accélération instantanée. 4 modes de conduite adaptatifs.</p>
+        <div class="grid grid-cols-4 gap-2">
+          <div class="chip border-white/20" style="color:rgba(255,255,255,.4)">WALK<br/><span style="color:#22C55E">6</span></div>
+          <div class="chip" style="border-color:rgba(34,211,238,.35);color:rgba(34,211,238,.7)">ECO<br/><span style="color:#22D3EE">10</span></div>
+          <div class="chip" style="border-color:rgba(8,145,178,.6);color:rgba(8,145,178,.85)">NORMAL<br/><span style="color:#0891B2">15</span></div>
+          <div class="chip" style="border-color:#22C55E;color:#22C55E;box-shadow:0 0 14px rgba(34,197,94,.3)">SPORT<br/><span class="neon-g">30</span></div>
+        </div>
+        <div class="mt-3 text-xs font-mono" style="color:rgba(255,255,255,.3)">km/h par mode</div>
+      </div>
+
+      <!-- TIRES -->
+      <div class="bcard glass p-8 rvr">
+        <svg class="w-10 h-10 mb-4" style="color:#22C55E" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
+        <h3 class="font-display font-bold text-xl text-white mb-3">PNEUS 8.5"</h3>
+        <p class="font-mono text-sm leading-relaxed mb-5" style="color:rgba(255,255,255,.55)">Caoutchouc solide anti-éclatement. Absorption des chocs maximale sur toutes surfaces.</p>
+        <div class="text-xs font-mono mb-2" style="color:rgba(255,255,255,.4)">GRIP RATING</div>
+        <div class="h-1.5 rounded-full overflow-hidden" style="background:rgba(255,255,255,.07)"><div class="pb h-full" style="width:88%"></div></div>
+      </div>
+
+      <!-- BATTERY -->
+      <div class="bcard glass p-8 rv" style="transition-delay:.1s">
+        <svg class="w-10 h-10 mb-4" style="color:#22D3EE" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="18" height="11" rx="2"/><path d="M22 11v3"/></svg>
+        <h3 class="font-display font-bold text-xl text-white mb-3">BATTERIE</h3>
+        <p class="font-mono text-sm leading-relaxed mb-5" style="color:rgba(255,255,255,.55)">Jusqu'à <span style="color:#22D3EE;font-weight:bold">30 km</span> d'autonomie. Rechargeable rapidement.</p>
+        <div class="flex justify-between text-xs font-mono mb-2" style="color:rgba(255,255,255,.4)"><span>CHARGE</span><span style="color:#22D3EE">87%</span></div>
+        <div class="h-1.5 rounded-full overflow-hidden" style="background:rgba(255,255,255,.07)"><div class="pb h-full" style="width:87%"></div></div>
+      </div>
+
+      <!-- APP – 2 cols -->
+      <div class="bcard glass p-8 md:col-span-2 rvr" id="app" style="transition-delay:.15s">
+        <div class="flex flex-col md:flex-row gap-8 items-center">
+          <div class="flex-1">
+            <svg class="w-10 h-10 mb-4" style="color:#22D3EE" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1" fill="currentColor"/><line x1="8" y1="6" x2="16" y2="6"/></svg>
+            <h3 class="font-display font-bold text-2xl text-white mb-3">CONTRÔLE PAR APP</h3>
+            <p class="font-mono text-sm leading-relaxed mb-4" style="color:rgba(255,255,255,.55)">Application MiniRobot — iOS &amp; Android. Contrôle total depuis ton smartphone via Bluetooth.</p>
+            <ul class="space-y-2 font-mono text-sm" style="color:rgba(255,255,255,.55)">
+              <li class="flex items-center gap-2"><svg class="w-4 h-4 flex-shrink-0" style="color:#22C55E" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Changement de mode en temps réel</li>
+              <li class="flex items-center gap-2"><svg class="w-4 h-4 flex-shrink-0" style="color:#22C55E" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Vitesse &amp; autonomie en direct</li>
+              <li class="flex items-center gap-2"><svg class="w-4 h-4 flex-shrink-0" style="color:#22C55E" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Verrouillage à distance</li>
+              <li class="flex items-center gap-2"><svg class="w-4 h-4 flex-shrink-0" style="color:#22C55E" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Historique de trajets</li>
+            </ul>
+          </div>
+          <!-- PHONE MOCKUP -->
+          <div class="flt flex-shrink-0" style="animation-delay:2s">
+            <div class="w-32 h-56 rounded-3xl relative overflow-hidden" style="border:2px solid rgba(34,211,238,.5);background:#061525;box-shadow:0 0 40px rgba(34,211,238,.25)">
+              <div class="absolute top-3 left-1/2 -translate-x-1/2 w-14 h-1.5 rounded-full" style="background:rgba(34,211,238,.25)"></div>
+              <div class="absolute inset-0 pt-8 p-3 flex flex-col gap-2">
+                <div class="text-center text-xs font-mono" style="color:#22D3EE">MiniRobot</div>
+                <div class="flex justify-center">
+                  <div class="w-16 h-16 rounded-full flex items-center justify-center" style="border:2px solid rgba(34,211,238,.4);background:radial-gradient(circle,rgba(34,211,238,.1),transparent)">
+                    <div class="text-center"><div class="text-lg font-bold font-display" style="color:#22D3EE">24</div><div class="text-xs" style="color:rgba(255,255,255,.4)">km/h</div></div>
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-1 mt-1">
+                  <div class="rounded-lg p-1.5 text-center" style="background:rgba(255,255,255,.05)"><div class="text-xs font-bold" style="color:#22C55E">87%</div><div class="font-mono" style="font-size:7px;color:rgba(255,255,255,.3)">BATTERY</div></div>
+                  <div class="rounded-lg p-1.5 text-center" style="background:rgba(255,255,255,.05)"><div class="text-xs font-bold" style="color:#22D3EE">5.2</div><div class="font-mono" style="font-size:7px;color:rgba(255,255,255,.3)">KM</div></div>
+                </div>
+                <div class="grid grid-cols-2 gap-1">
+                  <div class="rounded-lg p-1 text-center font-mono" style="background:rgba(34,197,94,.2);color:#22C55E;font-size:8px">SPORT</div>
+                  <div class="rounded-lg p-1 text-center font-mono" style="background:rgba(255,255,255,.05);color:rgba(255,255,255,.35);font-size:8px">LOCK</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SAFETY -->
+      <div class="bcard glass p-8 rv" style="transition-delay:.2s">
+        <svg class="w-10 h-10 mb-4" style="color:#22C55E" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <h3 class="font-display font-bold text-xl text-white mb-3">SÉCURITÉ MAX</h3>
+        <p class="font-mono text-sm leading-relaxed mb-4" style="color:rgba(255,255,255,.55)">Système Push to Start. La norme de sécurité la plus stricte du secteur.</p>
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border font-mono text-xs tracking-widest" style="border-color:rgba(34,197,94,.4);color:#22C55E;box-shadow:0 0 14px rgba(34,197,94,.18)">
+          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          UL 2272 CERTIFIÉ
+        </div>
+      </div>
+
+      <!-- FOLDING -->
+      <div class="bcard glass p-8 rvl" style="transition-delay:.25s">
+        <svg class="w-10 h-10 mb-4" style="color:#22D3EE" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+        <h3 class="font-display font-bold text-xl text-white mb-3">PLIABLE</h3>
+        <p class="font-mono text-sm leading-relaxed" style="color:rgba(255,255,255,.55)">Design compact et pliable. Transport facile partout — bus, métro, voiture.</p>
+      </div>
+
+      <!-- DISPLAY -->
+      <div class="bcard glass p-8 rvr" style="transition-delay:.3s">
+        <svg class="w-10 h-10 mb-4" style="color:#22D3EE" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <h3 class="font-display font-bold text-xl text-white mb-3">ÉCRAN LCD</h3>
+        <p class="font-mono text-sm leading-relaxed" style="color:rgba(255,255,255,.55)">Affichage vitesse, batterie, mode et Bluetooth en temps réel.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ SPECS ══════════════════════ -->
+<section id="specs" class="py-24 px-6" style="border-top:1px solid rgba(34,211,238,.08)">
+  <div class="max-w-4xl mx-auto">
+    <div class="text-center mb-16 rv">
+      <p class="text-xs font-mono tracking-widest mb-3" style="color:rgba(34,211,238,.6)">SPÉCIFICATIONS TECHNIQUES</p>
+      <h2 class="font-display font-bold text-4xl md:text-5xl text-white">SOUS LE <span class="shim">CAPOT</span></h2>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4 mb-4">
+      <div class="rv glass rounded-2xl p-6 space-y-5">
+        <div class="flex justify-between items-center pb-4" style="border-bottom:1px solid rgba(255,255,255,.05)">
+          <span class="font-mono text-sm" style="color:rgba(255,255,255,.45)">MOTEUR</span>
+          <span class="font-mono text-sm font-bold" style="color:#22D3EE">350W Brushless</span>
+        </div>
+        <div class="flex justify-between items-center pb-4" style="border-bottom:1px solid rgba(255,255,255,.05)">
+          <span class="font-mono text-sm" style="color:rgba(255,255,255,.45)">VITESSE MAX</span>
+          <span class="font-mono text-sm font-bold" style="color:#22D3EE">30 km/h</span>
+        </div>
+        <div class="flex justify-between items-center pb-4" style="border-bottom:1px solid rgba(255,255,255,.05)">
+          <span class="font-mono text-sm" style="color:rgba(255,255,255,.45)">AUTONOMIE</span>
+          <span class="font-mono text-sm font-bold" style="color:#22D3EE">Jusqu'à 30 km</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="font-mono text-sm" style="color:rgba(255,255,255,.45)">TAILLE PNEUS</span>
+          <span class="font-mono text-sm font-bold" style="color:#22C55E">8.5 pouces</span>
+        </div>
+      </div>
+      <div class="rv glass rounded-2xl p-6 space-y-5" style="transition-delay:.1s">
+        <div class="flex justify-between items-center pb-4" style="border-bottom:1px solid rgba(255,255,255,.05)">
+          <span class="font-mono text-sm" style="color:rgba(255,255,255,.45)">CERTIFICATION</span>
+          <span class="font-mono text-sm font-bold" style="color:#22C55E">UL 2272</span>
+        </div>
+        <div class="flex justify-between items-center pb-4" style="border-bottom:1px solid rgba(255,255,255,.05)">
+          <span class="font-mono text-sm" style="color:rgba(255,255,255,.45)">CONNECTIVITÉ</span>
+          <span class="font-mono text-sm font-bold" style="color:#22D3EE">Bluetooth + App</span>
+        </div>
+        <div class="flex justify-between items-center pb-4" style="border-bottom:1px solid rgba(255,255,255,.05)">
+          <span class="font-mono text-sm" style="color:rgba(255,255,255,.45)">MODES</span>
+          <span class="font-mono text-sm font-bold" style="color:#22D3EE">Walk/Eco/Normal/Sport</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="font-mono text-sm" style="color:rgba(255,255,255,.45)">PLIABLE</span>
+          <span class="font-mono text-sm font-bold" style="color:#22C55E">Oui</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PERFORMANCE BARS -->
+    <div class="rv glass rounded-2xl p-8" style="transition-delay:.2s">
+      <h3 class="font-display text-xs tracking-widest mb-6" style="color:rgba(34,211,238,.6)">PERFORMANCE</h3>
+      <div class="space-y-6">
+        <div>
+          <div class="flex justify-between text-xs font-mono mb-2" style="color:rgba(255,255,255,.5)"><span>VITESSE</span><span style="color:#22D3EE">30 KM/H</span></div>
+          <div class="h-1.5 rounded-full overflow-hidden" style="background:rgba(255,255,255,.06)"><div class="pb h-full" style="width:100%"></div></div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs font-mono mb-2" style="color:rgba(255,255,255,.5)"><span>AUTONOMIE</span><span style="color:#22D3EE">30 KM</span></div>
+          <div class="h-1.5 rounded-full overflow-hidden" style="background:rgba(255,255,255,.06)"><div class="pb h-full" style="width:90%"></div></div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs font-mono mb-2" style="color:rgba(255,255,255,.5)"><span>PUISSANCE</span><span style="color:#22D3EE">350W</span></div>
+          <div class="h-1.5 rounded-full overflow-hidden" style="background:rgba(255,255,255,.06)"><div class="pb h-full" style="width:72%"></div></div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs font-mono mb-2" style="color:rgba(255,255,255,.5)"><span>SÉCURITÉ</span><span style="color:#22C55E">UL 2272 ✓</span></div>
+          <div class="h-1.5 rounded-full overflow-hidden" style="background:rgba(255,255,255,.06)"><div class="pb h-full" style="width:100%"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ CTA ══════════════════════ -->
+<section id="buy" class="py-32 px-6 relative overflow-hidden">
+  <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+    <div class="w-[700px] h-[700px] rounded-full" style="background:radial-gradient(circle,rgba(34,211,238,.09) 0%,transparent 70%)"></div>
+  </div>
+  <div class="max-w-3xl mx-auto text-center relative z-10 rv">
+    <p class="text-xs font-mono tracking-widest mb-4" style="color:rgba(34,211,238,.6)">PRÊT À RIDER ?</p>
+    <h2 class="font-display font-bold text-5xl md:text-7xl text-white mb-6">
+      COMMANDE<br/><span class="shim">MAINTENANT</span>
+    </h2>
+    <p class="font-mono text-sm mb-12" style="color:rgba(255,255,255,.5)">Livraison rapide au Canada · Garantie incluse · Support 24/7</p>
+    <a href="https://www.amazon.ca/dp/B0GFY9CQ7P" target="_blank" rel="noopener noreferrer" class="btn text-base" style="cursor:none">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+      ACHETER SUR AMAZON
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+    </a>
+    <div class="mt-12 flex flex-wrap justify-center gap-6 font-mono text-xs" style="color:rgba(255,255,255,.35)">
+      <div class="flex items-center gap-2"><svg class="w-4 h-4" style="color:#22C55E" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>CERTIFIÉ UL 2272</div>
+      <div class="flex items-center gap-2"><svg class="w-4 h-4" style="color:#22D3EE" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>LIVRAISON EXPRESS</div>
+      <div class="flex items-center gap-2"><svg class="w-4 h-4" style="color:#22C55E" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>GARANTIE INCLUSE</div>
+      <div class="flex items-center gap-2"><svg class="w-4 h-4" style="color:#22D3EE" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>SUPPORT 24/7</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ FOOTER ══════════════════════ -->
+<footer class="py-8 px-6" style="border-top:1px solid rgba(34,211,238,.08)">
+  <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+    <div class="flex items-center gap-3">
+      <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="#22D3EE"/></svg>
+      <span class="font-display text-xs tracking-widest" style="color:rgba(255,255,255,.5)">GYROCOPTERS</span>
+    </div>
+    <p class="font-mono text-xs" style="color:rgba(255,255,255,.25)">© 2026 Gyrocopters · Flash Pro · Tous droits réservés</p>
+    <div class="flex gap-5 font-mono text-xs" style="color:rgba(255,255,255,.3)">
+      <a href="#features" style="cursor:none" class="hover:text-secondary transition-colors">Features</a>
+      <a href="#specs"    style="cursor:none" class="hover:text-secondary transition-colors">Specs</a>
+      <a href="#buy"      style="cursor:none" class="hover:text-secondary transition-colors">Acheter</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ──────────────────── CURSOR ────────────────────
+const cd=document.getElementById('cd'),cr=document.getElementById('cr');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{
+  mx=e.clientX;my=e.clientY;
+  cd.style.left=mx+'px';cd.style.top=my+'px';
+});
+(function loop(){
+  rx+=(mx-rx)*.12;ry+=(my-ry)*.12;
+  cr.style.left=rx+'px';cr.style.top=ry+'px';
+  requestAnimationFrame(loop);
+})();
+document.querySelectorAll('a,button,.bcard,.tilt').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{cd.style.width='18px';cd.style.height='18px';cd.style.background='#22C55E';cr.style.width='56px';cr.style.height='56px'});
+  el.addEventListener('mouseleave',()=>{cd.style.width='10px';cd.style.height='10px';cd.style.background='#22D3EE';cr.style.width='38px';cr.style.height='38px'});
+});
+
+// ──────────────────── PARTICLES ────────────────────
+const canvas=document.getElementById('cv'),ctx=canvas.getContext('2d');
+function rsz(){canvas.width=innerWidth;canvas.height=innerHeight;}
+rsz();addEventListener('resize',rsz);
+
+class P{
+  constructor(){this.reset();}
+  reset(){
+    this.x=Math.random()*canvas.width;
+    this.y=Math.random()*canvas.height;
+    this.vx=(Math.random()-.5)*.5;
+    this.vy=(Math.random()-.5)*.5-.15;
+    this.life=1;this.decay=Math.random()*.003+.001;
+    this.r=Math.random()*1.8+.4;
+    this.c=Math.random()>.55?'#22D3EE':Math.random()>.5?'#0891B2':'#22C55E';
+  }
+  update(){this.x+=this.vx;this.y+=this.vy;this.life-=this.decay;if(this.life<=0)this.reset();}
+  draw(){ctx.save();ctx.globalAlpha=this.life*.55;ctx.fillStyle=this.c;ctx.shadowBlur=5;ctx.shadowColor=this.c;ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);ctx.fill();ctx.restore();}
+}
+
+const sparks=[];
+class Spark{
+  constructor(x,y){
+    this.x=x;this.y=y;const a=Math.random()*Math.PI*2,s=Math.random()*3+1;
+    this.vx=Math.cos(a)*s;this.vy=Math.sin(a)*s;this.life=1;this.r=Math.random()*1.5+.5;
+  }
+  update(){this.x+=this.vx;this.y+=this.vy;this.vx*=.94;this.vy*=.94;this.life-=.055;}
+  draw(){
+    if(this.life<=0)return;
+    ctx.save();ctx.globalAlpha=this.life;ctx.strokeStyle='#22D3EE';
+    ctx.shadowBlur=8;ctx.shadowColor='#22D3EE';ctx.lineWidth=this.r;
+    ctx.beginPath();ctx.moveTo(this.x,this.y);ctx.lineTo(this.x-this.vx*3,this.y-this.vy*3);ctx.stroke();ctx.restore();
+  }
+}
+
+const pts=Array.from({length:75},()=>new P());
+let fc=0;
+document.addEventListener('mousemove',e=>{if(fc%4===0)for(let i=0;i<3;i++)sparks.push(new Spark(e.clientX,e.clientY));});
+
+(function anim(){
+  fc++;ctx.clearRect(0,0,canvas.width,canvas.height);
+  // Connections
+  for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){
+    const dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y,d=Math.sqrt(dx*dx+dy*dy);
+    if(d<110){ctx.save();ctx.globalAlpha=(1-d/110)*.12;ctx.strokeStyle='#22D3EE';ctx.lineWidth=.5;ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y);ctx.stroke();ctx.restore();}
+  }
+  pts.forEach(p=>{p.update();p.draw();});
+  for(let i=sparks.length-1;i>=0;i--){sparks[i].update();sparks[i].draw();if(sparks[i].life<=0)sparks.splice(i,1);}
+  requestAnimationFrame(anim);
+})();
+
+// ──────────────────── 3D TILT ────────────────────
+const tc=document.getElementById('tc');
+if(tc){
+  tc.addEventListener('mousemove',e=>{
+    const r=tc.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;
+    tc.style.transform=`perspective(900px) rotateY(${x*18}deg) rotateX(${-y*12}deg)`;
+  });
+  tc.addEventListener('mouseleave',()=>{tc.style.transform='perspective(900px) rotateY(0) rotateX(0)';});
+}
+
+// ──────────────────── TEXT SCRAMBLE ────────────────────
+const scEl=document.getElementById('sc');
+const CHARS='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#%&*';
+const TARGET='FLASH';
+let iter=0;
+function scramble(){
+  scEl.textContent=TARGET.split('').map((c,i)=>i<iter?c:CHARS[Math.floor(Math.random()*CHARS.length)]).join('');
+  if(iter<TARGET.length){iter+=.14;setTimeout(scramble,38);}else scEl.textContent=TARGET;
+}
+setTimeout(scramble,900);
+
+// ──────────────────── COUNTERS ────────────────────
+function counter(el){
+  const t=+el.dataset.target,dur=2000,s=performance.now();
+  (function u(now){
+    const p=Math.min((now-s)/dur,1),e=1-Math.pow(1-p,3);
+    el.textContent=Math.floor(e*t);
+    if(p<1)requestAnimationFrame(u);else el.textContent=t;
+  })(performance.now());
+}
+
+// ──────────────────── INTERSECTION OBSERVERS ────────────────────
+const revObs=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('on');}),{threshold:.12});
+document.querySelectorAll('.rv,.rvl,.rvr').forEach(el=>revObs.observe(el));
+
+const counted=new Set();
+const cntObs=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting&&!counted.has(e.target)){counted.add(e.target);counter(e.target);}}),{threshold:.5});
+document.querySelectorAll('[data-target]').forEach(el=>cntObs.observe(el));
+
+const barred=new Set();
+const barObs=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting&&!barred.has(e.target)){barred.add(e.target);setTimeout(()=>e.target.classList.add('on'),180);}}),{threshold:.25});
+document.querySelectorAll('.pb').forEach(el=>barObs.observe(el));
+
+// ──────────────────── MAGNETIC BUTTONS ────────────────────
+document.querySelectorAll('.btn').forEach(btn=>{
+  btn.addEventListener('mousemove',e=>{
+    const r=btn.getBoundingClientRect(),x=e.clientX-r.left-r.width/2,y=e.clientY-r.top-r.height/2;
+    btn.style.transform=`translate(${x*.18}px,${y*.28}px) scale(1.05)`;
+  });
+  btn.addEventListener('mouseleave',()=>btn.style.transform='translate(0,0) scale(1)');
+});
+</script>
+</body>
+</html>
